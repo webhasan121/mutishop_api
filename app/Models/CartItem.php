@@ -11,17 +11,15 @@ class CartItem extends Model
 
     protected $fillable = ['cart_id', 'product_id', 'product_variation_id', 'quantity'];
 
-    public function cart()
-    {
-        return $this->belongsTo(Cart::class);
-    }
+
+    // এই আইটেমটি কোন প্রোডাক্টের?
     public function product()
     {
         return $this->belongsTo(Product::class);
     }
-    public function productVariation()
+    // এই আইটেমটি কোন ভেরিয়েশনের?
+    public function variation()
     {
-        return $this->belongsTo(ProductVariation::class);
+        return $this->belongsTo(ProductVariation::class, 'product_variation_id');
     }
-
 }

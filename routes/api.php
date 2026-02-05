@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\Admin\AdminVendorController;
 use App\Http\Controllers\Admin\BrandController;
+use App\Http\Controllers\AttributeController;
+use App\Http\Controllers\AttributeValueController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CartController;
@@ -31,6 +33,11 @@ Route::get('/all-products', [ProductController::class, 'index']);
 Route::get('/products/{id}', [ProductController::class, 'show']);
 Route::get('/all-categories', [CategoryController::class, 'all_categories']);
 
+Route::post('/cart/add', [CartController::class, 'addToCart']);
+Route::get('/cart', [CartController::class, 'viewCart']);
+// Delete Route
+Route::delete('/cart/remove/{id}', [CartController::class, 'removeFromCart']);
+
 
 Route::group(['middleware' => 'auth:api'], function () {
     // ১. সবার জন্য উন্মুক্ত (যেকোনো লগইন ইউজার)
@@ -53,6 +60,12 @@ Route::group(['middleware' => 'auth:api'], function () {
         // নতুন রাউট
         Route::put('/product-variations/{id}', [ProductVariationController::class, 'update']);
         Route::delete('/product-variations/{id}', [ProductVariationController::class, 'destroy']);
+        // Attributes CRUD (Color, Size)
+        Route::apiResource('attributes', AttributeController::class);
+        // Attribute Values CRUD (Red, Blue, XL)
+        // আলাদা কন্ট্রোলার দিয়ে ভ্যালু ম্যানেজ করা ভালো
+        Route::post('/attribute-values', [AttributeValueController::class, 'store']);
+        Route::delete('/attribute-values/{id}', [AttributeValueController::class, 'destroy']);
     });
 
     // ৪. Admin এবং Vendor উভয়ের জন্য (কমন রাউট)

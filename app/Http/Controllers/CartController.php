@@ -85,41 +85,84 @@ class CartController extends Controller
     }
 
     // ২. কার্ট দেখা (সাথে প্রোডাক্টের ডিটেইলস)
-    public function viewCart()
+    public function viewCart(Request $request)
     {
-        $userId = auth()->id();
+        $user = Auth::user();
 
-        $cartItems = Cart::where('user_id', $userId)
-            ->with(['product' => function ($query) {
-                // প্রোডাক্টের শুধু এই তথ্যগুলো আনব (পারফরম্যান্স অপটিমাইজেশন)
-                $query->select('id', 'name', 'price', 'file', 'vendor_id');
-            }])
-            ->get();
+        $sessionId = $request->header('Session-ID');
 
-        // টোটাল হিসাব করা (Optional: ফ্রন্টএন্ডেও করা যায়, কিন্তু এখান থেকে দেওয়াই ভালো)
+        $cart = null;
+
+        if ($user) {
+            $cart = Cart::with(['items.product', 'items.variation.attributeValues.attribute'])
+                ->where('user_id', $user->id)->first();
+        } elseif ($sessionId) {
+            $cart = Cart::with(['items.product', 'items.variation.attributeValues.attribute'])
+                ->where('session_id', $sessionId)->first();
+        }
+
+        if (!$cart) {
+            return response()->json(['message' => 'Cart is empty', 'items' => []]);
+        }
+
+
         $totalAmount = 0;
-        foreach ($cartItems as $item) {
+        foreach ($cart->items as $item) {
             $totalAmount += $item->product->price * $item->quantity;
         }
 
         return response()->json([
             'success' => true,
             'total_amount' => $totalAmount,
-            'data' => $cartItems
+            'data' => $cart->items
         ]);
     }
 
     // ৩. কার্ট থেকে ডিলিট করা
-    public function removeFromCart($id)
+    // ৩. কার্ট থেকে আইটেম মুছে ফেলা (Remove Item)
+    public function removeFromCart(Request $request, $id)
     {
-        $cartItem = Cart::where('user_id', auth()->id())->where('id', $id)->first();
+        // $id হলো cart_items টেবিলের প্রাইমারি কি (cart_item_id)
+
+        $user = Auth::user();
+        $sessionId = $request->header('Session-ID');
+
+        // ১. আইটেমটি খুঁজে বের করা
+        $cartItem = CartItem::find($id);
 
         if (!$cartItem) {
             return response()->json(['message' => 'Item not found'], 404);
         }
 
+        // ২. সিকিউরিটি চেক: এই আইটেমটি যে কার্টে আছে, সেই কার্ট কি এই ইউজারের? 🕵️‍♂️
+        $cart = $cartItem->cart; // রিলেশনশিপ দিয়ে কার্ট ধরলাম
+
+        // লজিক:
+        // ক) যদি ইউজার লগইন থাকে -> কার্টের user_id চেক করো
+        // খ) যদি ইউজার গেস্ট থাকে -> কার্টের session_id চেক করো
+
+        if ($user) {
+            if ($cart->user_id !== $user->id) {
+                return response()->json(['message' => 'Unauthorized access to this cart'], 403);
+            }
+        } else {
+            if ($cart->session_id !== $sessionId) {
+                return response()->json(['message' => 'Unauthorized access to this cart'], 403);
+            }
+        }
+
+        // ৩. ডিলিট করা 🗑️
         $cartItem->delete();
 
-        return response()->json(['success' => true, 'message' => 'Item removed from cart']);
+        // ৪. কার্ট যদি খালি হয়ে যায়, মেইন কার্ট ডিলিট করা (অপশনাল, ডাটাবেস ক্লিন রাখার জন্য)
+        if ($cart->items()->count() === 0) {
+            $cart->delete();
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Item removed successfully',
+            'cart_count' => $cart->exists ? $cart->items()->count() : 0
+        ]);
     }
 }

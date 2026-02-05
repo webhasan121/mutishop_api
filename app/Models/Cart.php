@@ -11,14 +11,9 @@ class Cart extends Model
 
     protected $fillable = ['user_id', 'session_id', 'coupon_code'];
 
-    // রিলেশনশিপ: কার্ট আইটেম কোন প্রোডাক্টের?
-    public function product()
+  // কার্টে অনেকগুলো আইটেম থাকে
+    public function items()
     {
-        return $this->belongsTo(Product::class);
-    }
-
-    public function user()
-    {
-        return $this->belongsTo(User::class);
+        return $this->hasMany(CartItem::class);
     }
 }
